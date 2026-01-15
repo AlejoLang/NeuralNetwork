@@ -8,4 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MATIO REQUIRED matio)
+
 add_subdirectory(src)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${MATIO_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${MATIO_LIBRARIES})
+target_compile_options(${PROJECT_NAME} PRIVATE ${MATIO_CFLAGS_OTHER})
