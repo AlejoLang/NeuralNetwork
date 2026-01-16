@@ -4,52 +4,65 @@
 #include <random>
 
 template <typename T> Matrix<T> sigmoid(Matrix<T> vals) {
-    Matrix<T> newMat(1, vals.getHeight());
-    for (int i = 0; i < vals.getHeight(); ++i) {
-        newMat.setValue(0, i, (static_cast<T>(1) / (1 + pow(M_E, -vals.getValue(0, i)))));
+    Matrix<T> newMat(vals.getWidth(), vals.getHeight());
+
+    for (size_t i = 0; i < vals.getWidth(); ++i) {
+        for (size_t j = 0; j < vals.getHeight(); ++j) {
+            newMat.setValue(i, j, (static_cast<T>(1) / (1 + pow(M_E, -vals.getValue(i, j)))));
+        }
     }
     return newMat;
 }
 template <typename T> Matrix<T> sigmoid_derivative(Matrix<T> vals) {
-    Matrix<T> newMat(1, vals.getHeight());
-    for (int i = 0; i < vals.getHeight(); ++i) {
-        newMat.setValue(
-            0, i, (pow(M_E, -vals.getValue(0, i)) / pow((1 + pow(M_E, -vals.getValue(0, i))), 2)));
+    Matrix<T> newMat(vals.getWidth(), vals.getHeight());
+    for (size_t i = 0; i < vals.getWidth(); ++i) {
+        for (size_t j = 0; j < vals.getHeight(); ++j) {
+            newMat.setValue(
+                i, j,
+                (pow(M_E, -vals.getValue(i, j)) / pow((1 + pow(M_E, -vals.getValue(i, j))), 2)));
+        }
     }
     return newMat;
 }
 template <typename T> Matrix<T> relu(Matrix<T> vals) {
-    Matrix<T> newMat(1, vals.getHeight());
-    for (int i = 0; i < vals.getHeight(); ++i) {
-        newMat.setValue(0, i, std::max(static_cast<T>(0), vals.getValue(0, i)));
+    Matrix<T> newMat(vals.getWidth(), vals.getHeight());
+    for (size_t i = 0; i < vals.getWidth(); ++i) {
+        for (size_t j = 0; j < vals.getHeight(); ++j) {
+            newMat.setValue(i, j, std::max(static_cast<T>(0), vals.getValue(i, j)));
+        }
     }
     return newMat;
 }
 template <typename T> Matrix<T> relu_derivative(Matrix<T> vals) {
-    Matrix<T> newMat(1, vals.getHeight());
-    for (int i = 0; i < vals.getHeight(); ++i) {
-        newMat.setValue(0, i, vals.getValue(0, i) >= 0 ? 1 : 0);
+    Matrix<T> newMat(vals.getWidth(), vals.getHeight());
+    for (size_t i = 0; i < vals.getWidth(); ++i) {
+        for (size_t j = 0; j < vals.getHeight(); ++j) {
+            newMat.setValue(i, j, vals.getValue(i, j) >= 0 ? 1 : 0);
+        }
     }
     return newMat;
 }
 template <typename T> Matrix<T> softmax(Matrix<T> vals) {
-    Matrix<T> newMat(1, vals.getHeight());
-    T maxVal = vals.getValue(0, 0);
-    for (int i = 1; i < vals.getHeight(); ++i) {
-        maxVal = std::max(maxVal, vals.getValue(0, i));
-    }
-    T sum = 0;
-    for (int i = 0; i < vals.getHeight(); ++i) {
-        sum += exp(vals.getValue(0, i) - maxVal);
-    }
-    for (int i = 0; i < vals.getHeight(); ++i) {
-        newMat.setValue(0, i, exp(vals.getValue(0, i) - maxVal) / sum);
+    Matrix<T> newMat(vals.getWidth(), vals.getHeight());
+    for (size_t i = 0; i < vals.getWidth(); ++i) {
+        T maxVal = vals.getValue(i, 0);
+        for (size_t j = 1; j < vals.getHeight(); ++j) {
+            maxVal = std::max(maxVal, vals.getValue(i, j));
+        }
+        T sum = 0;
+        for (size_t j = 0; j < vals.getHeight(); ++j) {
+            sum += exp(vals.getValue(i, j) - maxVal);
+        }
+        for (size_t j = 0; j < vals.getHeight(); ++j) {
+            newMat.setValue(i, j, exp(vals.getValue(i, j) - maxVal) / sum);
+        }
     }
     return newMat;
 }
 
-Layer::Layer(int nodeCount, int previousLayerNodes, ActivationFunction activationF) {
+Layer::Layer(int nodeCount, int previousLayerNodes, ActivationFunction activationF, int batchSize) {
     this->nodeCount = nodeCount;
+    this->batchSize = batchSize;
     this->weights = Matrix<double>(previousLayerNodes, nodeCount);
     this->biases = Matrix<double>(1, nodeCount);
     this->activationFunctionType = activationF;
@@ -95,12 +108,27 @@ int Layer::getNodeCount() {
 }
 
 void Layer::setDeltas(Matrix<double> d) {
-    if (d.getWidth() != 1) {
-        return;
-    }
     this->deltas = d;
-    this->db = d;
+
+    // Calculate db: average of deltas across batch
+    Matrix<double> avgDeltas(1, this->deltas.getHeight());
+    for (size_t j = 0; j < d.getHeight(); j++) {
+        double sum = 0;
+        for (size_t i = 0; i < d.getWidth(); i++) {
+            sum += d.getValue(i, j);
+        }
+        avgDeltas.setValue(0, j, sum / d.getWidth());
+    }
+    this->db = avgDeltas;
+
+    // Calculate dW: (A^T * deltas) / batchSize
     this->dW = d * this->previousLayerActivations.transpose();
+    // Average over batch
+    for (size_t i = 0; i < this->dW.getWidth(); i++) {
+        for (size_t j = 0; j < this->dW.getHeight(); j++) {
+            this->dW.setValue(i, j, this->dW.getValue(i, j) / d.getWidth());
+        }
+    }
 }
 
 Matrix<double> Layer::getWeights() {
@@ -109,13 +137,20 @@ Matrix<double> Layer::getWeights() {
 
 Matrix<double> Layer::foward(Matrix<double>& input) {
     this->previousLayerActivations = input;
-    this->preActivations = (this->weights * input) + this->biases;
+    this->preActivations = (this->weights * input);
+    for (size_t i = 0; i < this->preActivations.getWidth(); ++i) {
+        for (size_t j = 0; j < this->preActivations.getHeight(); ++j) {
+            this->preActivations.setValue(
+                i, j, this->preActivations.getValue(i, j) + this->biases.getValue(0, j));
+        }
+    }
+
     this->activations = this->activationFunction(this->preActivations);
     return this->activations;
 }
 
 Matrix<double> Layer::backwards(Matrix<double> nextLayerWeights, Matrix<double> nextLayerDeltas) {
-    Matrix<double> deltas(1, this->nodeCount);
+    Matrix<double> deltas(this->batchSize, this->nodeCount);
 
     if (this->activationFunctionType != SOFTMAX) {
         deltas = (nextLayerWeights.transpose() * nextLayerDeltas);
@@ -124,8 +159,25 @@ Matrix<double> Layer::backwards(Matrix<double> nextLayerWeights, Matrix<double> 
         deltas = nextLayerDeltas;
     }
     this->deltas = deltas;
-    this->db = deltas;
+
+    // Calculate db: average of deltas across batch
+    Matrix<double> avgDeltas(1, this->deltas.getHeight());
+    for (size_t j = 0; j < deltas.getHeight(); j++) {
+        double sum = 0;
+        for (size_t i = 0; i < deltas.getWidth(); i++) {
+            sum += deltas.getValue(i, j);
+        }
+        avgDeltas.setValue(0, j, sum / deltas.getWidth());
+    }
+    this->db = avgDeltas;
+    // Calculate dW: (A^T * deltas) / batchSize
     this->dW = deltas * this->previousLayerActivations.transpose();
+    // Average over batch
+    for (size_t i = 0; i < this->dW.getWidth(); i++) {
+        for (size_t j = 0; j < this->dW.getHeight(); j++) {
+            this->dW.setValue(i, j, this->dW.getValue(i, j) / deltas.getWidth());
+        }
+    }
 
     return deltas;
 }

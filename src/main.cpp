@@ -38,9 +38,20 @@ void load_data(std::string path, std::vector<std::vector<double>>& images,
     // Handle different data types
     if (dataVar->class_type == MAT_C_DOUBLE) {
         double* data = static_cast<double*>(dataVar->data);
+
+        // Some MNIST .mat files store pixels as double in [0,255].
+        // Detect that case and normalize to [0,1] to avoid sigmoid saturation.
+        double maxPixel = 0.0;
+        for (size_t idx = 0; idx < rows * cols; ++idx) {
+            if (data[idx] > maxPixel) {
+                maxPixel = data[idx];
+            }
+        }
+        const double scale = (maxPixel > 1.0) ? 255.0 : 1.0;
+
         for (size_t c = 0; c < cols; ++c)
             for (size_t r = 0; r < rows; ++r)
-                images[c][r] = data[r + c * rows];
+                images[c][r] = data[r + c * rows] / scale;
     } else if (dataVar->class_type == MAT_C_UINT8) {
         uint8_t* data = static_cast<uint8_t*>(dataVar->data);
         for (size_t c = 0; c < cols; ++c)
@@ -118,7 +129,7 @@ int main(int argc, char* argv[]) {
     }
     std::vector<std::vector<double>> images;
     std::vector<int> labels;
-    NeuralNetwork nenu = NeuralNetwork({784, 200, 100, 10});
+    NeuralNetwork nenu = NeuralNetwork({784, 256, 128, 10});
 
     load_data(path, images, labels);
     if (images.size() == 0 && labels.size() == 0) {
@@ -138,32 +149,43 @@ int main(int argc, char* argv[]) {
     nenu.randomize();
     std::cout << "Weights/ biases randomized" << std::endl;
 
-    std::cout << "Training..." << std::endl;
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    for (int i = 0; i < (samples_vector.size() * 0.8); ++i) {
-        nenu.foward(samples_vector[i].input);
-        nenu.backwards(samples_vector[i].output);
-        nenu.update();
+    for (size_t j = 0; j < 10; j++) {
+        std::cout << "Training..." << std::endl;
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        for (int i = 0; i < (samples_vector.size() * 0.8); ++i) {
+            nenu.foward(samples_vector[i].input);
+            nenu.backwards(samples_vector[i].output);
+            nenu.update();
+        }
+        std::cout << "Epoch " << j + 1 << " finished after "
+                  << std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::steady_clock::now() - start)
+                  << std::endl;
     }
-    std::cout << "Training finished after "
-              << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
-                                                                  start)
-              << std::endl;
-
     std::cout << "Testing..." << std::endl;
     double cost = 0, maxCost = -MAXFLOAT, minCost = MAXFLOAT;
     int tsamples = 0;
-    for (int i = (samples_vector.size() * 0.8); i < samples_vector.size(); ++i) {
+    int hits = 0;
+    for (int i = samples_vector.size() * 0.8; i < samples_vector.size(); ++i) {
         Matrix<double> output = nenu.foward(samples_vector[i].input);
         double auxCost = 0;
+        int posMax = 0;
+        double maxVal = 0;
         for (int j = 0; j < output.getHeight(); ++j) {
-            auxCost += pow((samples_vector[i].output.getValue(0, j) - output.getValue(0, j)), 2);
+            auxCost += pow(samples_vector[i].output.getValue(0, j) - output.getValue(0, j), 2);
             if (auxCost > maxCost) {
                 maxCost = auxCost;
             }
             if (auxCost < minCost) {
                 minCost = auxCost;
             }
+            if (output.getValue(0, j) > maxVal) {
+                maxVal = output.getValue(0, j);
+                posMax = j;
+            }
+        }
+        if (samples_vector[i].output.getValue(0, posMax) == 1) {
+            hits++;
         }
         cost += (auxCost / output.getHeight());
         tsamples++;
@@ -171,9 +193,7 @@ int main(int argc, char* argv[]) {
     std::cout << "AVG Cost: " << cost / tsamples << std::endl;
     std::cout << "Max Cost: " << maxCost << std::endl;
     std::cout << "Min Cost: " << minCost << std::endl;
-
-    int a;
-    std::cin >> a;
+    std::cout << "Hits: " << hits << " (" << ((float)hits / tsamples) * 100 << "%)" << std::endl;
 
     return 0;
 }

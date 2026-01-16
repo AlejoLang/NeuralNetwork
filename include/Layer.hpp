@@ -7,6 +7,7 @@ class Layer {
 
   private:
     int nodeCount;
+    int batchSize;
     Matrix<double> weights;
     Matrix<double> biases;
     ActivationFunction activationFunctionType;
@@ -22,12 +23,15 @@ class Layer {
     Matrix<double> db;
 
   public:
-    Layer(int nodeCount, int previousLayerNodes = 0, ActivationFunction activationF = SIGMOID);
+    Layer(int nodeCount, int previousLayerNodes = 0, ActivationFunction activationF = SIGMOID,
+          int batchSize = 1);
     void initRandom();
     int getNodeCount();
     void setDeltas(Matrix<double> d);
     Matrix<double> getWeights();
     Matrix<double> foward(Matrix<double>& input);
+    Matrix<double> foward_batch(Matrix<double>& input);
     Matrix<double> backwards(Matrix<double> nextLayerWeights, Matrix<double> nextLayerDeltas);
+    Matrix<double> backwards_batch(Matrix<double>& input);
     void update(double learning_rate);
 };
