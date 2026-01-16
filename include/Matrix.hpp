@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <stdexcept>
 #include <vector>
 
 template <typename T> class Matrix {
@@ -22,6 +23,7 @@ template <typename T> class Matrix {
     Matrix<T> operator*(const Matrix<T>& mat);
     Matrix<T> operator*(const int& integer);
     Matrix<T> operator*(const double& dou);
+    Matrix<T> operator/(const int& integer);
     Matrix<T> operator-(const Matrix<T>& mat);
     Matrix<T> operator+(const Matrix<T>& mat);
 };
@@ -68,7 +70,7 @@ template <typename T> Matrix<T> Matrix<T>::transpose() {
 
 template <typename T> Matrix<T> Matrix<T>::hadamard(const Matrix<T>& mat) {
     if (this->width != mat.getWidth() || this->height != mat.getHeight()) {
-        return Matrix<T>();
+        throw std::invalid_argument("Matrix dimensions must match for Hadamard product");
     }
     Matrix<T> newMat(this->width, this->height);
 #pragma omp parallel for
@@ -102,7 +104,8 @@ template <typename T> Matrix<T>& Matrix<T>::operator=(const Matrix<T>& mat) {
 
 template <typename T> Matrix<T> Matrix<T>::operator*(const Matrix<T>& mat) {
     if (this->width != mat.getHeight()) {
-        return Matrix<T>();
+        throw std::invalid_argument("Matrix multiplication requires width of first matrix to equal "
+                                    "height of second matrix");
     }
     Matrix<T> newMat(mat.getWidth(), this->height);
 #pragma omp parallel for collapse(2) schedule(static)
@@ -140,9 +143,20 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const double& dou) {
     return newMat;
 }
 
+template <typename T> Matrix<T> Matrix<T>::operator/(const int& integer) {
+    Matrix<T> newMat(this->width, this->height);
+#pragma omp parallel for
+    for (size_t j = 0; j < this->height; ++j) {    // rows iterator
+        for (size_t i = 0; i < this->width; ++i) { // columns iterator
+            newMat.setValue(i, j, this->values[(j * this->width) + i] / static_cast<T>(integer));
+        }
+    }
+    return newMat;
+}
+
 template <typename T> Matrix<T> Matrix<T>::operator+(const Matrix<T>& mat) {
     if (this->width != mat.getWidth() || this->height != mat.getHeight()) {
-        return Matrix<T>();
+        throw std::invalid_argument("Matrix dimensions must match for addition");
     }
     Matrix<T> newMat(this->width, this->height);
 #pragma omp parallel for
@@ -157,7 +171,7 @@ template <typename T> Matrix<T> Matrix<T>::operator+(const Matrix<T>& mat) {
 
 template <typename T> Matrix<T> Matrix<T>::operator-(const Matrix<T>& mat) {
     if (this->width != mat.getWidth() || this->height != mat.getHeight()) {
-        return Matrix<T>();
+        throw std::invalid_argument("Matrix dimensions must match for subtraction");
     }
     Matrix<T> newMat(this->width, this->height);
 #pragma omp parallel for
