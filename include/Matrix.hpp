@@ -57,6 +57,7 @@ template <typename T> int Matrix<T>::getHeight() const {
 
 template <typename T> Matrix<T> Matrix<T>::transpose() {
     Matrix<T> newMat(this->height, this->width);
+#pragma omp parallel for
     for (size_t j = 0; j < this->height; ++j) {
         for (size_t i = 0; i < this->width; ++i) {
             newMat.setValue(j, i, this->values[(j * this->width) + i]);
@@ -70,6 +71,7 @@ template <typename T> Matrix<T> Matrix<T>::hadamard(const Matrix<T>& mat) {
         return Matrix<T>();
     }
     Matrix<T> newMat(this->width, this->height);
+#pragma omp parallel for
     for (size_t j = 0; j < this->height; ++j) {
         for (size_t i = 0; i < this->width; ++i) {
             newMat.setValue(i, j, this->values[(j * this->width) + i] * mat.getValue(i, j));
@@ -80,6 +82,7 @@ template <typename T> Matrix<T> Matrix<T>::hadamard(const Matrix<T>& mat) {
 
 template <typename T> Matrix<T> Matrix<T>::apply(T (*funct)(T)) {
     Matrix<T> newMat(this->width, this->height);
+#pragma omp parallel for
     for (size_t j = 0; j < this->height; j++) {
         for (size_t i = 0; i < this->width; i++) {
             newMat.setValue(i, j, funct(this->values[(j * this->width) + i]));
@@ -102,13 +105,14 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const Matrix<T>& mat) {
         return Matrix<T>();
     }
     Matrix<T> newMat(mat.getWidth(), this->height);
-    for (size_t j = 0; j < this->height; ++j) {    // rows iterator
-        for (size_t i = 0; i < this->width; ++i) { // columns iterator
-            for (size_t k = 0; k < mat.getWidth(); ++k) {
-                T newVal = newMat.getValue(k, j) +
-                           this->values[(j * this->width) + i] * mat.getValue(k, i);
-                newMat.setValue(k, j, newVal);
+#pragma omp parallel for collapse(2) schedule(static)
+    for (size_t j = 0; j < this->height; ++j) {       // output rows
+        for (size_t k = 0; k < mat.getWidth(); ++k) { // output cols
+            T sum = static_cast<T>(0);
+            for (size_t i = 0; i < this->width; ++i) { // shared dim
+                sum += this->values[(j * this->width) + i] * mat.getValue(k, i);
             }
+            newMat.setValue(k, j, sum);
         }
     }
     return newMat;
@@ -116,6 +120,7 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const Matrix<T>& mat) {
 
 template <typename T> Matrix<T> Matrix<T>::operator*(const int& integer) {
     Matrix<T> newMat(this->width, this->height);
+#pragma omp parallel for
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
             newMat.setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(integer));
@@ -126,6 +131,7 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const int& integer) {
 
 template <typename T> Matrix<T> Matrix<T>::operator*(const double& dou) {
     Matrix<T> newMat(this->width, this->height);
+#pragma omp parallel for
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
             newMat.setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(dou));
@@ -139,6 +145,7 @@ template <typename T> Matrix<T> Matrix<T>::operator+(const Matrix<T>& mat) {
         return Matrix<T>();
     }
     Matrix<T> newMat(this->width, this->height);
+#pragma omp parallel for
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
             T newVal = this->values[(j * this->width) + i] + mat.getValue(i, j);
@@ -153,6 +160,7 @@ template <typename T> Matrix<T> Matrix<T>::operator-(const Matrix<T>& mat) {
         return Matrix<T>();
     }
     Matrix<T> newMat(this->width, this->height);
+#pragma omp parallel for
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
             T newVal = this->values[(j * this->width) + i] - mat.getValue(i, j);
