@@ -10,7 +10,7 @@ class NeuralNetwork {
     Matrix<double> output;
 
   public:
-    NeuralNetwork(std::vector<int> layersConfig);
+    NeuralNetwork(std::vector<int> layersConfig, int batchSize = 1);
     void randomize();
     Matrix<double> foward(Matrix<double> input);
     void backwards(Matrix<double> target);
