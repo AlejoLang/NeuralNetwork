@@ -66,7 +66,7 @@ template <typename T> Matrix<T> Matrix<T>::transpose() {
 }
 
 template <typename T> Matrix<T> Matrix<T>::hadamard(const Matrix<T>& mat) {
-    if (this->width != mat.getWidth() && this->height != mat.getHeight()) {
+    if (this->width != mat.getWidth() || this->height != mat.getHeight()) {
         return Matrix<T>();
     }
     Matrix<T> newMat(this->width, this->height);
@@ -118,7 +118,7 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const int& integer) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
-            this->setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(integer));
+            newMat.setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(integer));
         }
     }
     return newMat;
@@ -128,7 +128,7 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const double& dou) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
-            this->setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(dou));
+            newMat.setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(dou));
         }
     }
     return newMat;
