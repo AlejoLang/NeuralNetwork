@@ -4,7 +4,7 @@
 
 template <typename T> class Matrix {
   private:
-    std::vector<std::vector<T>> values;
+    std::vector<T> values;
     int width;
     int height;
 
@@ -30,21 +30,21 @@ template <typename T> class Matrix {
 template <typename T> Matrix<T>::Matrix() {
     this->width = 0;
     this->height = 0;
-    this->values = std::vector<std::vector<T>>(0, std::vector<T>(0, 0));
+    this->values = std::vector<T>(0);
 }
 
 template <typename T> Matrix<T>::Matrix(int w, int h, T initValue) {
     this->width = w;
     this->height = h;
-    this->values = std::vector<std::vector<T>>(h, std::vector<T>(w, initValue));
+    this->values = std::vector<T>((h * w), initValue);
 }
 
 template <typename T> T Matrix<T>::getValue(int x, int y) const {
-    return this->values[y][x];
+    return this->values[(y * this->width) + x];
 }
 
 template <typename T> void Matrix<T>::setValue(int x, int y, T value) {
-    this->values[y][x] = value;
+    this->values[(y * this->width) + x] = value;
 }
 
 template <typename T> int Matrix<T>::getWidth() const {
@@ -59,7 +59,7 @@ template <typename T> Matrix<T> Matrix<T>::transpose() {
     Matrix<T> newMat(this->height, this->width);
     for (size_t j = 0; j < this->height; ++j) {
         for (size_t i = 0; i < this->width; ++i) {
-            newMat.setValue(j, i, this->values[j][i]);
+            newMat.setValue(j, i, this->values[(j * this->width) + i]);
         }
     }
     return newMat;
@@ -72,7 +72,7 @@ template <typename T> Matrix<T> Matrix<T>::hadamard(const Matrix<T>& mat) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; ++j) {
         for (size_t i = 0; i < this->width; ++i) {
-            newMat.setValue(i, j, this->values[j][i] * mat.getValue(i, j));
+            newMat.setValue(i, j, this->values[(j * this->width) + i] * mat.getValue(i, j));
         }
     }
     return newMat;
@@ -82,7 +82,7 @@ template <typename T> Matrix<T> Matrix<T>::apply(T (*funct)(T)) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; j++) {
         for (size_t i = 0; i < this->width; i++) {
-            newMat.setValue(i, j, funct(this->values[j][i]));
+            newMat.setValue(i, j, funct(this->values[(j * this->width) + i]));
         }
     }
     return newMat;
@@ -105,7 +105,8 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const Matrix<T>& mat) {
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
             for (size_t k = 0; k < mat.getWidth(); ++k) {
-                T newVal = newMat.getValue(k, j) + this->values[j][i] * mat.getValue(k, i);
+                T newVal = newMat.getValue(k, j) +
+                           this->values[(j * this->width) + i] * mat.getValue(k, i);
                 newMat.setValue(k, j, newVal);
             }
         }
@@ -117,7 +118,7 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const int& integer) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
-            this->setValue(i, j, this->values[j][i] * static_cast<T>(integer));
+            this->setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(integer));
         }
     }
     return newMat;
@@ -127,7 +128,7 @@ template <typename T> Matrix<T> Matrix<T>::operator*(const double& dou) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
-            this->setValue(i, j, this->values[j][i] * static_cast<T>(dou));
+            this->setValue(i, j, this->values[(j * this->width) + i] * static_cast<T>(dou));
         }
     }
     return newMat;
@@ -140,7 +141,7 @@ template <typename T> Matrix<T> Matrix<T>::operator+(const Matrix<T>& mat) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
-            T newVal = this->getValue(i, j) + mat.getValue(i, j);
+            T newVal = this->values[(j * this->width) + i] + mat.getValue(i, j);
             newMat.setValue(i, j, newVal);
         }
     }
@@ -154,7 +155,7 @@ template <typename T> Matrix<T> Matrix<T>::operator-(const Matrix<T>& mat) {
     Matrix<T> newMat(this->width, this->height);
     for (size_t j = 0; j < this->height; ++j) {    // rows iterator
         for (size_t i = 0; i < this->width; ++i) { // columns iterator
-            T newVal = this->getValue(i, j) - mat.getValue(i, j);
+            T newVal = this->values[(j * this->width) + i] - mat.getValue(i, j);
             newMat.setValue(i, j, newVal);
         }
     }
