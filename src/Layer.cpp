@@ -37,7 +37,7 @@ template <typename T> Matrix<T> relu_derivative(Matrix<T> vals) {
     Matrix<T> newMat(vals.getWidth(), vals.getHeight());
     for (size_t i = 0; i < vals.getWidth(); ++i) {
         for (size_t j = 0; j < vals.getHeight(); ++j) {
-            newMat.setValue(i, j, vals.getValue(i, j) >= 0 ? 1 : 0);
+            newMat.setValue(i, j, vals.getValue(i, j) > 0 ? 1 : 0);
         }
     }
     return newMat;
@@ -89,8 +89,24 @@ void Layer::initRandom() {
     std::random_device rand_dev;
     std::mt19937 generator(rand_dev());
     // Xavier initialization: sqrt(6 / (fan_in + fan_out))
-    double limit = sqrt(6.0 / (this->weights.getHeight() + this->weights.getWidth()));
-    std::uniform_real_distribution<double> distr(-limit, limit);
+    std::uniform_real_distribution<double> distr;
+    switch (this->activationFunctionType) {
+    case SIGMOID: {
+        // Xavier initialization: sqrt(6 / (fan_in + fan_out))
+        double limit = sqrt(6.0 / (this->weights.getHeight() + this->weights.getWidth()));
+        distr = std::uniform_real_distribution<double>(-limit, limit);
+        break;
+    }
+    case RELU: {
+        // Normal (Gaussian)
+        double limit = sqrt(6.0 / (this->weights.getHeight()));
+        distr = std::uniform_real_distribution<double>(-limit, limit);
+        break;
+    }
+    default:
+        distr = std::uniform_real_distribution<double>(-0.5, 0.5);
+        break;
+    }
     for (size_t j = 0; j < this->weights.getHeight(); ++j) {
         for (size_t i = 0; i < this->weights.getWidth(); i++) {
             this->weights.setValue(i, j, distr(generator));
