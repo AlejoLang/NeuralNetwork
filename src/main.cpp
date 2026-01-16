@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     }
     std::vector<std::vector<double>> images;
     std::vector<int> labels;
-    NeuralNetwork nenu = NeuralNetwork({784, 256, 128, 10});
+    NeuralNetwork nenu = NeuralNetwork({784, 128, 10}, 64);
 
     load_data(path, images, labels);
     if (images.size() == 0 && labels.size() == 0) {
@@ -146,33 +146,58 @@ int main(int argc, char* argv[]) {
     std::shuffle(samples_vector.begin(), samples_vector.end(), generator);
     std::cout << "Input and output vectors created and shuffled" << std::endl;
 
-    nenu.randomize();
-    std::cout << "Weights/ biases randomized" << std::endl;
+    // Split into training (80%) and testing (20%) data
+    size_t split_index = static_cast<size_t>(samples_vector.size() * 0.8);
+    std::vector<Sample> training_data(samples_vector.begin(), samples_vector.begin() + split_index);
+    std::vector<Sample> testing_data(samples_vector.begin() + split_index, samples_vector.end());
+    samples_vector.clear(); // Free memory
 
-    for (size_t j = 0; j < 10; j++) {
-        std::cout << "Training..." << std::endl;
-        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        for (int i = 0; i < (samples_vector.size() * 0.8); ++i) {
-            nenu.foward(samples_vector[i].input);
-            nenu.backwards(samples_vector[i].output);
+    std::cout << "Training samples: " << training_data.size() << std::endl;
+    std::cout << "Testing samples: " << testing_data.size() << std::endl;
+
+    nenu.randomize();
+    std::cout << "Training..." << std::endl;
+    std::cout << "Weights/ biases randomized" << std::endl;
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+    for (size_t j = 0; j < 100; j++) {
+        std::chrono::steady_clock::time_point epoch_start = std::chrono::steady_clock::now();
+        Matrix<double> batch_input(64, training_data[0].input.getHeight());
+        Matrix<double> batch_output(64, training_data[0].output.getHeight());
+        for (size_t i = 0; i + 64 <= training_data.size(); i += 64) {
+            for (int k = 0; k < 64; k++) {
+                for (size_t l = 0; l < training_data[i + k].input.getHeight(); l++) {
+                    batch_input.setValue(k, l, training_data[i + k].input.getValue(0, l));
+                }
+                for (size_t l = 0; l < training_data[i + k].output.getHeight(); l++) {
+                    batch_output.setValue(k, l, training_data[i + k].output.getValue(0, l));
+                }
+            }
+            nenu.foward(batch_input);
+            nenu.backwards(batch_output);
             nenu.update();
         }
         std::cout << "Epoch " << j + 1 << " finished after "
                   << std::chrono::duration_cast<std::chrono::seconds>(
-                         std::chrono::steady_clock::now() - start)
+                         std::chrono::steady_clock::now() - epoch_start)
                   << std::endl;
+        std::shuffle(training_data.begin(), training_data.end(), generator);
     }
+    std::cout << "Traingin finished after "
+              << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
+                                                                  start)
+              << std::endl;
+    std::shuffle(training_data.begin(), training_data.end(), generator);
     std::cout << "Testing..." << std::endl;
     double cost = 0, maxCost = -MAXFLOAT, minCost = MAXFLOAT;
     int tsamples = 0;
     int hits = 0;
-    for (int i = samples_vector.size() * 0.8; i < samples_vector.size(); ++i) {
-        Matrix<double> output = nenu.foward(samples_vector[i].input);
+    for (size_t i = 0; i < testing_data.size(); ++i) {
+        Matrix<double> output = nenu.foward(testing_data[i].input);
         double auxCost = 0;
         int posMax = 0;
         double maxVal = 0;
         for (int j = 0; j < output.getHeight(); ++j) {
-            auxCost += pow(samples_vector[i].output.getValue(0, j) - output.getValue(0, j), 2);
+            auxCost += pow(testing_data[i].output.getValue(0, j) - output.getValue(0, j), 2);
             if (auxCost > maxCost) {
                 maxCost = auxCost;
             }
@@ -184,7 +209,7 @@ int main(int argc, char* argv[]) {
                 posMax = j;
             }
         }
-        if (samples_vector[i].output.getValue(0, posMax) == 1) {
+        if (testing_data[i].output.getValue(0, posMax) == 1) {
             hits++;
         }
         cost += (auxCost / output.getHeight());
