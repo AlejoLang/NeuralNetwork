@@ -12,6 +12,7 @@ template <typename T> class Matrix {
   public:
     Matrix();
     Matrix(int w, int h, T initValue = 0);
+    Matrix(int w, int h, std::vector<T> values);
     void setValue(int x, int y, T value);
     T getValue(int x, int y) const;
     int getWidth() const;
@@ -40,6 +41,19 @@ template <typename T> Matrix<T>::Matrix(int w, int h, T initValue) {
     this->width = w;
     this->height = h;
     this->values = std::vector<T>((h * w), initValue);
+}
+
+template <typename T> Matrix<T>::Matrix(int w, int h, std::vector<T> values) {
+    this->width = w;
+    this->height = h;
+    this->values = values;
+    if (this->values > w * h) {
+        this->values.resize(w * h);
+    } else if (this->values.size() < w * h) {
+        for (size_t i = 0; i < (w * h) - this->values.size(); i++) {
+            this->values.push_back(static_cast<T>(0));
+        }
+    }
 }
 
 template <typename T> T Matrix<T>::getValue(int x, int y) const {
