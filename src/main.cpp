@@ -7,7 +7,7 @@
 #include <string>
 
 void load_data(std::string path, std::vector<std::vector<double>>& images,
-               std::vector<int>& labels) {
+               std::vector<std::vector<double>>& labels) {
     mat_t* dataset = Mat_Open(path.c_str(), MAT_ACC_RDONLY);
     if (!dataset) {
         std::cerr << "Couldn't open the file" << std::endl;
@@ -83,38 +83,14 @@ void load_data(std::string path, std::vector<std::vector<double>>& images,
     }
 
     double* labels_raw = static_cast<double*>(labelVar->data);
-    labels = std::vector<int>(cols, 0);
+    labels = std::vector<std::vector<double>>(cols, std::vector<double>(10, 0));
 
-    for (size_t i = 0; i < cols; ++i)
-        labels[i] = static_cast<int>(labels_raw[i]);
+    for (size_t i = 0; i < cols; ++i) {
+        labels[i][static_cast<int>(labels_raw[i])] = 1;
+    }
 
     Mat_VarFree(labelVar);
     Mat_Close(dataset);
-
-    /* -------- Test output -------- */
-    std::cout << "Images: " << images.size() << std::endl;
-    std::cout << "Pixels per image: " << images[0].size() << std::endl;
-    std::cout << "First label: " << labels[0] << std::endl;
-}
-
-struct Sample {
-    Matrix<double> input;
-    Matrix<double> output;
-};
-
-std::vector<Sample> create_sample_vector(std::vector<std::vector<double>> input,
-                                         std::vector<int> output) {
-    std::vector<Sample> result;
-    for (size_t i = 0; i < input.size(); i++) {
-        Matrix<double> newInputMat(1, input[i].size());
-        for (size_t j = 0; j < input[i].size(); j++) {
-            newInputMat.setValue(0, j, input[i][j]);
-        }
-        Matrix<double> newOutputMat(1, 10, 0.0);
-        newOutputMat.setValue(0, output[i], 1);
-        result.push_back({newInputMat, newOutputMat});
-    }
-    return result;
 }
 
 int main(int argc, char* argv[]) {
@@ -128,7 +104,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     std::vector<std::vector<double>> images;
-    std::vector<int> labels;
+    std::vector<std::vector<double>> labels;
     NeuralNetwork nenu = NeuralNetwork({784, 128, 10}, 64);
 
     load_data(path, images, labels);
@@ -138,87 +114,11 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "Data loaded" << std::endl;
 
-    std::vector<Sample> samples_vector = create_sample_vector(images, labels);
-    images.clear();
-    labels.clear();
-    std::random_device rand_dev;
-    std::mt19937 generator(rand_dev());
-    std::shuffle(samples_vector.begin(), samples_vector.end(), generator);
-    std::cout << "Input and output vectors created and shuffled" << std::endl;
-
-    // Split into training (80%) and testing (20%) data
-    size_t split_index = static_cast<size_t>(samples_vector.size() * 0.8);
-    std::vector<Sample> training_data(samples_vector.begin(), samples_vector.begin() + split_index);
-    std::vector<Sample> testing_data(samples_vector.begin() + split_index, samples_vector.end());
-    samples_vector.clear(); // Free memory
-
-    std::cout << "Training samples: " << training_data.size() << std::endl;
-    std::cout << "Testing samples: " << testing_data.size() << std::endl;
-
-    nenu.randomize();
-    std::cout << "Training..." << std::endl;
-    std::cout << "Weights/ biases randomized" << std::endl;
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    for (size_t j = 0; j < 100; j++) {
-        std::chrono::steady_clock::time_point epoch_start = std::chrono::steady_clock::now();
-        Matrix<double> batch_input(64, training_data[0].input.getHeight());
-        Matrix<double> batch_output(64, training_data[0].output.getHeight());
-        for (size_t i = 0; i + 64 <= training_data.size(); i += 64) {
-            for (int k = 0; k < 64; k++) {
-                for (size_t l = 0; l < training_data[i + k].input.getHeight(); l++) {
-                    batch_input.setValue(k, l, training_data[i + k].input.getValue(0, l));
-                }
-                for (size_t l = 0; l < training_data[i + k].output.getHeight(); l++) {
-                    batch_output.setValue(k, l, training_data[i + k].output.getValue(0, l));
-                }
-            }
-            nenu.foward(batch_input);
-            nenu.backwards(batch_output);
-            nenu.update();
-        }
-        std::cout << "Epoch " << j + 1 << " finished after "
-                  << std::chrono::duration_cast<std::chrono::seconds>(
-                         std::chrono::steady_clock::now() - epoch_start)
-                  << std::endl;
-        std::shuffle(training_data.begin(), training_data.end(), generator);
-    }
-    std::cout << "Traingin finished after "
-              << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
-                                                                  start)
-              << std::endl;
-    std::shuffle(training_data.begin(), training_data.end(), generator);
-    std::cout << "Testing..." << std::endl;
-    double cost = 0, maxCost = -MAXFLOAT, minCost = MAXFLOAT;
-    int tsamples = 0;
-    int hits = 0;
-    for (size_t i = 0; i < testing_data.size(); ++i) {
-        Matrix<double> output = nenu.foward(testing_data[i].input);
-        double auxCost = 0;
-        int posMax = 0;
-        double maxVal = 0;
-        for (int j = 0; j < output.getHeight(); ++j) {
-            auxCost += pow(testing_data[i].output.getValue(0, j) - output.getValue(0, j), 2);
-            if (auxCost > maxCost) {
-                maxCost = auxCost;
-            }
-            if (auxCost < minCost) {
-                minCost = auxCost;
-            }
-            if (output.getValue(0, j) > maxVal) {
-                maxVal = output.getValue(0, j);
-                posMax = j;
-            }
-        }
-        if (testing_data[i].output.getValue(0, posMax) == 1) {
-            hits++;
-        }
-        cost += (auxCost / output.getHeight());
-        tsamples++;
-    }
-    std::cout << "AVG Cost: " << cost / tsamples << std::endl;
-    std::cout << "Max Cost: " << maxCost << std::endl;
-    std::cout << "Min Cost: " << minCost << std::endl;
-    std::cout << "Hits: " << hits << " (" << ((float)hits / tsamples) * 100 << "%)" << std::endl;
+    NeuralNetwork::TrainResponse resp = nenu.train(images, labels, 0.8, 30, 64, 0.1, 1);
+    std::cout << resp.averageCost << std::endl;
+    std::cout << resp.maxCost << std::endl;
+    std::cout << resp.minCost << std::endl;
+    std::cout << resp.hitPercentage << std::endl;
 
     return 0;
 }
