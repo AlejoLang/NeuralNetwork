@@ -151,6 +151,10 @@ Matrix<double> Layer::getWeights() {
     return this->weights;
 }
 
+Matrix<double> Layer::getBiases() {
+    return this->biases;
+}
+
 Matrix<double> Layer::foward(Matrix<double>& input) {
     this->previousLayerActivations = input;
     this->preActivations = (this->weights * input);

@@ -29,6 +29,7 @@ class Layer {
     int getNodeCount();
     void setDeltas(Matrix<double> d);
     Matrix<double> getWeights();
+    Matrix<double> getBiases();
     Matrix<double> foward(Matrix<double>& input);
     Matrix<double> foward_batch(Matrix<double>& input);
     Matrix<double> backwards(Matrix<double> nextLayerWeights, Matrix<double> nextLayerDeltas);
