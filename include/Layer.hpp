@@ -7,7 +7,6 @@ class Layer {
 
   private:
     int nodeCount;
-    int batchSize;
     Matrix<double> weights;
     Matrix<double> biases;
     ActivationFunction activationFunctionType;
@@ -23,8 +22,7 @@ class Layer {
     Matrix<double> db;
 
   public:
-    Layer(int nodeCount, int previousLayerNodes = 0, ActivationFunction activationF = SIGMOID,
-          int batchSize = 1);
+    Layer(int nodeCount, int previousLayerNodes = 0, ActivationFunction activationF = SIGMOID);
     void initRandom();
     int getNodeCount();
     void setDeltas(Matrix<double> d);

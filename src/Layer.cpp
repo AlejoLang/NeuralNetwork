@@ -60,9 +60,8 @@ template <typename T> Matrix<T> softmax(Matrix<T> vals) {
     return newMat;
 }
 
-Layer::Layer(int nodeCount, int previousLayerNodes, ActivationFunction activationF, int batchSize) {
+Layer::Layer(int nodeCount, int previousLayerNodes, ActivationFunction activationF) {
     this->nodeCount = nodeCount;
-    this->batchSize = batchSize;
     this->weights = Matrix<double>(previousLayerNodes, nodeCount);
     this->biases = Matrix<double>(1, nodeCount);
     this->activationFunctionType = activationF;
@@ -170,7 +169,7 @@ Matrix<double> Layer::foward(Matrix<double>& input) {
 }
 
 Matrix<double> Layer::backwards(Matrix<double> nextLayerWeights, Matrix<double> nextLayerDeltas) {
-    Matrix<double> deltas(this->batchSize, this->nodeCount);
+    Matrix<double> deltas(nextLayerDeltas.getWidth(), this->nodeCount);
 
     if (this->activationFunctionType != SOFTMAX) {
         deltas = (nextLayerWeights.transpose() * nextLayerDeltas);
