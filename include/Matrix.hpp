@@ -16,6 +16,7 @@ template <typename T> class Matrix {
     T getValue(int x, int y) const;
     int getWidth() const;
     int getHeight() const;
+    std::vector<T> getValuesVector();
     Matrix<T> transpose();
     Matrix<T> hadamard(const Matrix<T>& mat);
     Matrix<T> apply(T (*funct)(T));
@@ -55,6 +56,10 @@ template <typename T> int Matrix<T>::getWidth() const {
 
 template <typename T> int Matrix<T>::getHeight() const {
     return this->height;
+}
+
+template <typename T> std::vector<T> Matrix<T>::getValuesVector() {
+    return this->values;
 }
 
 template <typename T> Matrix<T> Matrix<T>::transpose() {
