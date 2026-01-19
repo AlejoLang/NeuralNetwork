@@ -191,10 +191,9 @@ void NeuralNetwork::saveWeights(std::string path) {
         std::cerr << "Couldnt create file" << std::endl;
         return;
     }
-    size_t layersNum = this->layers.size();
+    size_t layersNum = this->layersConfig.size();
     file.write(reinterpret_cast<const char*>(&layersNum), sizeof(layersNum));
-    file.write(reinterpret_cast<const char*>(this->layers.data()),
-               this->layers.size() * sizeof(int));
+    file.write(reinterpret_cast<const char*>(this->layersConfig.data()), layersNum * sizeof(int));
     for (size_t i = 0; i < this->layers.size(); ++i) {
         std::vector<double> weights = this->layers[i].getWeights().getValuesVector();
         std::vector<double> biases = this->layers[i].getBiases().getValuesVector();
@@ -216,19 +215,24 @@ void NeuralNetwork::loadWeights(std::string path) {
         std::cerr << "Error reading network config" << std::endl;
         return;
     }
-    std::vector<int> config;
-    this->setLayersConfig(config);
+    std::vector<int> config(size, 0);
+    std::cout << size << std::endl;
     file.read(reinterpret_cast<char*>(config.data()), size * sizeof(int));
+    for (int i : config) {
+        std::cout << i << " ";
+    }
+    std::cout << std::endl;
+    this->setLayersConfig(config);
     for (size_t i = 1; i < config.size(); ++i) {
-        std::vector<double> weightsVec;
+        std::vector<double> weightsVec(config[i] * config[i - 1], 0);
         file.read(reinterpret_cast<char*>(weightsVec.data()),
                   (config[i] * config[i - 1]) * sizeof(double));
         Matrix layerWeights(config[i - 1], config[i], weightsVec);
         this->setLayerWeights(i - 1, layerWeights);
-        std::vector<double> biasesVec;
+        std::vector<double> biasesVec(config[i]);
         file.read(reinterpret_cast<char*>(biasesVec.data()), config[i] * sizeof(double));
         Matrix layerBiases(1, config[i], biasesVec);
-        this->setLayerWeights(i - 1, layerBiases);
+        this->setLayerBiases(i - 1, layerBiases);
     }
     file.close();
 }
