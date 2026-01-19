@@ -47,7 +47,7 @@ template <typename T> Matrix<T>::Matrix(int w, int h, std::vector<T> values) {
     this->width = w;
     this->height = h;
     this->values = values;
-    if (this->values > w * h) {
+    if (this->values.size() > w * h) {
         this->values.resize(w * h);
     } else if (this->values.size() < w * h) {
         for (size_t i = 0; i < (w * h) - this->values.size(); i++) {
