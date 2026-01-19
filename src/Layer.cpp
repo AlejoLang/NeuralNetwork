@@ -146,6 +146,13 @@ void Layer::setDeltas(Matrix<double> d) {
     }
 }
 
+void Layer::setWeights(Matrix<double> weights) {
+    this->weights = weights;
+}
+void Layer::setBiases(Matrix<double> biases) {
+    this->biases = biases;
+}
+
 Matrix<double> Layer::getWeights() {
     return this->weights;
 }

@@ -26,6 +26,8 @@ class Layer {
     void initRandom();
     int getNodeCount();
     void setDeltas(Matrix<double> d);
+    void setWeights(Matrix<double> weights);
+    void setBiases(Matrix<double> biases);
     Matrix<double> getWeights();
     Matrix<double> getBiases();
     Matrix<double> foward(Matrix<double>& input);
