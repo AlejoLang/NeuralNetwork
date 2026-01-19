@@ -117,7 +117,7 @@ NeuralNetwork::TrainResponse NeuralNetwork::train(std::vector<std::vector<double
     this->randomize();
 
     for (size_t epochs_it = 0; epochs_it < epochs; ++epochs_it) {
-        std::cout << "Epotch " << epochs_it + 1 << std::endl;
+        std::cout << "Epoch " << epochs_it + 1 << std::endl;
         if (epochs_it % 10 != 0 && epochs_it != 0) {
             learningRate *= learningRateUpdate;
         }
