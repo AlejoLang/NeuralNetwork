@@ -5,6 +5,7 @@
 #include <SDL3/SDL_video.h>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <matio.h>
@@ -98,6 +99,96 @@ void load_data(std::string path, std::vector<std::vector<double>>& images,
     Mat_Close(dataset);
 }
 
+// Given a canvas with a certain number drawn, finds the bounding box of the drawing, downscales it
+// to 20x20 and centers it on a buffer that's the same size of the canvas
+uint32_t* center_canvas_image(Canvas* canvas) {
+    uint32_t* buffer = new uint32_t[canvas->getWidth() * canvas->getHeight()];
+    std::memset(buffer, 0, canvas->getWidth() * canvas->getHeight() * sizeof(uint32_t));
+
+    int minX = canvas->getWidth(), maxX = 0;
+    int minY = canvas->getHeight(), maxY = 0;
+
+    // Find bounding box
+    for (int y = 0; y < canvas->getHeight(); ++y) {
+        for (int x = 0; x < canvas->getWidth(); ++x) {
+            if (canvas->getValue(x, y) != 0) {
+                if (x < minX)
+                    minX = x;
+                if (x > maxX)
+                    maxX = x;
+                if (y < minY)
+                    minY = y;
+                if (y > maxY)
+                    maxY = y;
+            }
+        }
+    }
+
+    // If no drawing found, return empty buffer
+    if (maxX < minX || maxY < minY) {
+        return buffer;
+    }
+
+    int num_w = maxX - minX + 1;
+    int num_h = maxY - minY + 1;
+
+    // Calculate scaling to fit in 20x20
+    float scaling_factor = 1.0f;
+    int scaled_w = num_w;
+    int scaled_h = num_h;
+
+    if (num_w > 20 || num_h > 20) {
+        if (num_w > num_h) {
+            scaling_factor = (float)num_w / 20.0f;
+            scaled_w = 20;
+            scaled_h = (int)((float)num_h / scaling_factor);
+        } else {
+            scaling_factor = (float)num_h / 20.0f;
+            scaled_h = 20;
+            scaled_w = (int)((float)num_w / scaling_factor);
+        }
+    }
+
+    // Center position in output buffer
+    int scaled_x = (canvas->getWidth() / 2) - (scaled_w / 2);
+    int scaled_y = (canvas->getHeight() / 2) - (scaled_h / 2);
+
+    // Downscale using area averaging (written with claude)
+    for (int dst_y = 0; dst_y < scaled_h; ++dst_y) {
+        for (int dst_x = 0; dst_x < scaled_w; ++dst_x) {
+            // Map back to source coordinates
+            float src_x_start = minX + (dst_x * scaling_factor);
+            float src_y_start = minY + (dst_y * scaling_factor);
+            float src_x_end = src_x_start + scaling_factor;
+            float src_y_end = src_y_start + scaling_factor;
+
+            // Average all pixels in source region
+            float sum = 0.0f;
+            int count = 0;
+
+            for (int src_y = (int)src_y_start; src_y < (int)src_y_end && src_y <= maxY; ++src_y) {
+                for (int src_x = (int)src_x_start; src_x < (int)src_x_end && src_x <= maxX;
+                     ++src_x) {
+                    uint32_t pixel = canvas->getValue(src_x, src_y);
+                    // Extract alpha channel (or use full value if monochrome)
+                    float value = (float)(pixel & 0xFF) / 255.0f;
+                    sum += value;
+                    count++;
+                }
+            }
+
+            if (count > 0) {
+                float avg = sum / count;
+                uint8_t gray = (uint8_t)(avg * 255.0f);
+                uint32_t color = (gray << 24) | (gray << 16) | (gray << 8) | gray; // ABGR format
+                buffer[(scaled_y + dst_y) * canvas->getWidth() + (scaled_x + dst_x)] = color;
+            }
+        }
+    }
+
+    return buffer;
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Not enough arguments, use --in=<.mat file> and --out<.bin file>" << std::endl;
@@ -182,7 +273,7 @@ int main(int argc, char* argv[]) {
                         break;
                     }
                     if (event.key.key == SDLK_RETURN) {
-                        uint32_t* buf = canvas->getBuffer();
+                        uint32_t* buf = center_canvas_image(canvas);
                         Matrix<double> in(1, 28 * 28);
                         for (size_t i = 0; i < (28 * 28); i++) {
                             double color = (double)(*(buf + i)) / 0xFFFFFFFF;
@@ -197,6 +288,7 @@ int main(int argc, char* argv[]) {
                         std::cout << std::endl;
                         std::cout << "----------------" << std::endl;
                         std::cout << std::endl;
+                        delete buf;
                         break;
                     }
                 }

@@ -15,9 +15,23 @@ uint32_t* Canvas::getBuffer() {
     return this->buffer;
 }
 
+int Canvas::getWidth() {
+    return this->width;
+}
+
+int Canvas::getHeight() {
+    return this->height;
+}
+
+uint32_t Canvas::getValue(int x, int y) {
+    if (x > this->width || y > this->height || x < 0 || y < 0) {
+        return 0;
+    }
+    return this->buffer[(y * this->width) + x];
+}
+
 void Canvas::setPixel(int x, int y, uint32_t color) {
-    if (x > this->width || y > this->height) {
-        std::cerr << "Invalida coords" << std::endl;
+    if (x > this->width || y > this->height || x < 0 || y < 0) {
         return;
     }
     this->buffer[(y * this->width) + x] = color;
