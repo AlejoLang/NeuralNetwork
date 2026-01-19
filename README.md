@@ -1,6 +1,6 @@
 # NeuralNetwork
 
-Small neural network from scratch, mainly for number recognition.
+Small MLP neural network built from scratch, the project aims for number recognition using the MNIST dataset.
 
-This is my first attempt at anithing related to neural networks so it might have errors or bad optimizations
+This is my first attempt at anything related to neural networks so it might have erTrs or bad optimizations
 
