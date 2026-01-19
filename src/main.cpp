@@ -207,7 +207,7 @@ int main(int argc, char* argv[]) {
     if (input_path.find(".mat") != std::string::npos && output_path.size() != 0) {
         std::vector<std::vector<double>> images;
         std::vector<std::vector<double>> labels;
-        NeuralNetwork nenu = NeuralNetwork({784, 128, 10});
+        NeuralNetwork nenu = NeuralNetwork({784, 512, 10});
 
         load_data(input_path, images, labels);
         if (images.size() == 0 && labels.size() == 0) {
@@ -216,7 +216,7 @@ int main(int argc, char* argv[]) {
         }
         std::cout << "Data loaded" << std::endl;
 
-        NeuralNetwork::TrainResponse resp = nenu.train(images, labels, 0.8, 30, 64, 0.1, 1);
+        NeuralNetwork::TrainResponse resp = nenu.train(images, labels, 0.8, 50, 50, 0.09, 1);
         std::cout << resp.averageCost << std::endl;
         std::cout << resp.maxCost << std::endl;
         std::cout << resp.minCost << std::endl;
@@ -291,6 +291,7 @@ int main(int argc, char* argv[]) {
                         delete buf;
                         break;
                     }
+                    break;
                 }
                 case SDL_EVENT_QUIT: {
                     exit = true;
