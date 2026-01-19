@@ -21,14 +21,20 @@ class NeuralNetwork {
     std::vector<Layer> layers;
     Matrix<double> output;
     void randomize();
-    Matrix<double> foward(Matrix<double> input);
     void backwards(Matrix<double> target);
     void update(double learningRate);
 
   public:
-    NeuralNetwork(std::vector<int> layersConfig, int batchSize = 1);
+    NeuralNetwork();
+    NeuralNetwork(std::vector<int> layersConfig);
     NeuralNetwork::TrainResponse train(std::vector<std::vector<double>> inputs,
                                        std::vector<std::vector<double>> outputs,
                                        float trainingUseRatio, int epochs = 1, int batchSize = 32,
                                        double learningRate = 0.01, double learningRateUpdate = 1);
+    Matrix<double> foward(Matrix<double> input);
+    void setLayersConfig(std::vector<int> layersConfig);
+    void setLayerWeights(size_t layerIt, Matrix<double> weights);
+    void setLayerBiases(size_t layerIt, Matrix<double> biases);
+    void saveWeights(std::string path);
+    void loadWeights(std::string path);
 };

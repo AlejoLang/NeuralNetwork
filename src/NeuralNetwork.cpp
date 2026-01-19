@@ -1,5 +1,6 @@
 #include "../include/NeuralNetwork.hpp"
 #include <cmath>
+#include <fstream>
 #include <iostream>
 #include <random>
 
@@ -20,17 +21,42 @@ std::vector<NeuralNetwork::Sample> create_sample_vector(std::vector<std::vector<
     return result;
 }
 
-NeuralNetwork::NeuralNetwork(std::vector<int> layersConfig, int batchSize)
-    : output(batchSize, layersConfig[layersConfig.size() - 1]) {
+NeuralNetwork::NeuralNetwork() {
+    this->layersConfig = {};
+    this->layers = {};
+}
+
+NeuralNetwork::NeuralNetwork(std::vector<int> layersConfig) {
     this->layersConfig = layersConfig;
     for (size_t i = 1; i < layersConfig.size() - 1;
          ++i) { // Creates the layers ignoring the first one since it doesnt need weights or biases
-        Layer newLayer(layersConfig[i], layersConfig[i - 1], Layer::RELU, batchSize);
+        Layer newLayer(layersConfig[i], layersConfig[i - 1], Layer::RELU);
         this->layers.push_back(newLayer);
     }
     Layer lastLayer(layersConfig[layersConfig.size() - 1], layersConfig[layersConfig.size() - 2],
-                    Layer::SOFTMAX, batchSize);
+                    Layer::SOFTMAX);
     this->layers.push_back(lastLayer);
+}
+
+void NeuralNetwork::setLayersConfig(std::vector<int> layersConfig) {
+    this->layers.clear();
+    this->layersConfig = layersConfig;
+    for (size_t i = 1; i < layersConfig.size() - 1;
+         ++i) { // Creates the layers ignoring the first one since it doesnt need weights or biases
+        Layer newLayer(layersConfig[i], layersConfig[i - 1], Layer::RELU);
+        this->layers.push_back(newLayer);
+    }
+    Layer lastLayer(layersConfig[layersConfig.size() - 1], layersConfig[layersConfig.size() - 2],
+                    Layer::SOFTMAX);
+    this->layers.push_back(lastLayer);
+}
+
+void NeuralNetwork::setLayerWeights(size_t layerIt, Matrix<double> weights) {
+    this->layers[layerIt].setWeights(weights);
+}
+
+void NeuralNetwork::setLayerBiases(size_t layerIt, Matrix<double> biases) {
+    this->layers[layerIt].setBiases(biases);
 }
 
 void NeuralNetwork::randomize() {
@@ -157,4 +183,52 @@ NeuralNetwork::TrainResponse NeuralNetwork::train(std::vector<std::vector<double
     }
     return NeuralNetwork::TrainResponse((cost / tsamples), maxCost, minCost,
                                         ((double)hits / tsamples) * 100);
+}
+
+void NeuralNetwork::saveWeights(std::string path) {
+    std::ofstream file(path.c_str(), std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Couldnt create file" << std::endl;
+        return;
+    }
+    size_t layersNum = this->layers.size();
+    file.write(reinterpret_cast<const char*>(&layersNum), sizeof(layersNum));
+    file.write(reinterpret_cast<const char*>(this->layers.data()),
+               this->layers.size() * sizeof(int));
+    for (size_t i = 0; i < this->layers.size(); ++i) {
+        std::vector<double> weights = this->layers[i].getWeights().getValuesVector();
+        std::vector<double> biases = this->layers[i].getBiases().getValuesVector();
+        file.write(reinterpret_cast<const char*>(weights.data()), weights.size() * sizeof(double));
+        file.write(reinterpret_cast<const char*>(biases.data()), biases.size() * sizeof(double));
+    }
+    file.close();
+}
+
+void NeuralNetwork::loadWeights(std::string path) {
+    std::ifstream file(path.c_str(), std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "Couldnt open file" << std::endl;
+        return;
+    }
+    size_t size;
+    file.read(reinterpret_cast<char*>(&size), sizeof(size));
+    if (size <= 0) {
+        std::cerr << "Error reading network config" << std::endl;
+        return;
+    }
+    std::vector<int> config;
+    this->setLayersConfig(config);
+    file.read(reinterpret_cast<char*>(config.data()), size * sizeof(int));
+    for (size_t i = 1; i < config.size(); ++i) {
+        std::vector<double> weightsVec;
+        file.read(reinterpret_cast<char*>(weightsVec.data()),
+                  (config[i] * config[i - 1]) * sizeof(double));
+        Matrix layerWeights(config[i - 1], config[i], weightsVec);
+        this->setLayerWeights(i - 1, layerWeights);
+        std::vector<double> biasesVec;
+        file.read(reinterpret_cast<char*>(biasesVec.data()), config[i] * sizeof(double));
+        Matrix layerBiases(1, config[i], biasesVec);
+        this->setLayerWeights(i - 1, layerBiases);
+    }
+    file.close();
 }
