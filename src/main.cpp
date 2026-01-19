@@ -1,6 +1,11 @@
+#include "../include/Canvas.hpp"
 #include "../include/NeuralNetwork.hpp"
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_render.h>
+#include <SDL3/SDL_video.h>
 #include <chrono>
 #include <cstdint>
+#include <iomanip>
 #include <iostream>
 #include <matio.h>
 #include <random>
@@ -95,30 +100,116 @@ void load_data(std::string path, std::vector<std::vector<double>>& images,
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Dataset path missing" << std::endl;
+        std::cerr << "Not enough arguments, use --in=<.mat file> and --out<.bin file>" << std::endl;
         return 0;
     }
-    std::string path = argv[1];
-    if (path.find(".mat") == std::string::npos) {
-        std::cerr << "Files is not a mat file" << std::endl;
-        return 0;
+    std::string input_path;
+    std::string output_path;
+    for (size_t i = 0; i < argc; ++i) {
+        std::string param(argv[i]);
+        if (param.find("--in=") != std::string::npos) {
+            input_path = param.substr(param.find("=") + 1, param.size());
+        } else if (param.find("--out=") != std::string::npos) {
+            output_path = param.substr(param.find("=") + 1, param.size());
+        }
     }
-    std::vector<std::vector<double>> images;
-    std::vector<std::vector<double>> labels;
-    NeuralNetwork nenu = NeuralNetwork({784, 128, 10}, 64);
+    if (input_path.find(".mat") != std::string::npos && output_path.size() != 0) {
+        std::vector<std::vector<double>> images;
+        std::vector<std::vector<double>> labels;
+        NeuralNetwork nenu = NeuralNetwork({784, 128, 10});
 
-    load_data(path, images, labels);
-    if (images.size() == 0 && labels.size() == 0) {
-        std::cerr << "Error loading data" << std::endl;
-        return 0;
-    }
-    std::cout << "Data loaded" << std::endl;
+        load_data(input_path, images, labels);
+        if (images.size() == 0 && labels.size() == 0) {
+            std::cerr << "Error loading data" << std::endl;
+            return 0;
+        }
+        std::cout << "Data loaded" << std::endl;
 
-    NeuralNetwork::TrainResponse resp = nenu.train(images, labels, 0.8, 30, 64, 0.1, 1);
-    std::cout << resp.averageCost << std::endl;
-    std::cout << resp.maxCost << std::endl;
-    std::cout << resp.minCost << std::endl;
-    std::cout << resp.hitPercentage << std::endl;
+        NeuralNetwork::TrainResponse resp = nenu.train(images, labels, 0.8, 30, 64, 0.1, 1);
+        std::cout << resp.averageCost << std::endl;
+        std::cout << resp.maxCost << std::endl;
+        std::cout << resp.minCost << std::endl;
+        std::cout << resp.hitPercentage << std::endl;
+
+        nenu.saveWeights(output_path);
+    } else if (input_path.find(".bin") != std::string::npos) {
+        NeuralNetwork* nenu = new NeuralNetwork();
+        nenu->loadWeights(input_path);
+        SDL_Window* window = SDL_CreateWindow("Test", 1024, 768, SDL_WINDOW_RESIZABLE);
+        SDL_Renderer* renderer = SDL_CreateRenderer(window, NULL);
+        Canvas* canvas = new Canvas(28, 28, renderer);
+        int wh, ww;
+        SDL_GetWindowSize(window, &ww, &wh);
+        SDL_FRect* rect = new SDL_FRect(0, 0, ww, wh);
+        bool exit = false;
+        bool mousePressed = false;
+        while (!exit) {
+            SDL_RenderClear(renderer);
+            canvas->render(renderer, rect);
+            SDL_RenderPresent(renderer);
+
+            SDL_Event event;
+            while (SDL_PollEvent(&event) == 1) {
+                switch (event.type) {
+                case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+
+                        mousePressed = true;
+                    }
+                    break;
+                }
+                case SDL_EVENT_MOUSE_BUTTON_UP:
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+
+                        mousePressed = false;
+                    }
+                    break;
+                case SDL_EVENT_MOUSE_MOTION: {
+                    SDL_FPoint p = SDL_FPoint(event.motion.x, event.motion.y);
+                    if (mousePressed && SDL_PointInRectFloat(&p, rect)) {
+                        int canvasX = (int)(((event.motion.x - rect->x) / rect->w) * 28);
+                        int canvasY = (int)(((event.motion.y - rect->y) / rect->h) * 28);
+                        canvas->setPixel(canvasX, canvasY, 0xFFFFFFFF);
+                        canvas->setPixel(canvasX + 1, canvasY + 1, 0xFFFFFFFF);
+                        canvas->setPixel(canvasX, canvasY + 1, 0xFFFFFFFF);
+                        canvas->setPixel(canvasX + 1, canvasY, 0xFFFFFFFF);
+                    }
+                    break;
+                }
+                case SDL_EVENT_KEY_DOWN: {
+                    if (event.key.key == SDLK_C) {
+                        canvas->clear();
+                        break;
+                    }
+                    if (event.key.key == SDLK_RETURN) {
+                        uint32_t* buf = canvas->getBuffer();
+                        Matrix<double> in(1, 28 * 28);
+                        for (size_t i = 0; i < (28 * 28); i++) {
+                            double color = (double)(*(buf + i)) / 0xFFFFFFFF;
+                            in.setValue(0, i, color);
+                        }
+                        Matrix<double> out = nenu->foward(in);
+                        for (size_t i = 0; i < out.getHeight(); i++) {
+                            std::cout << i << ": " << std::fixed << std::setprecision(6)
+                                      << out.getValue(0, i) << std::endl;
+                            ;
+                        }
+                        std::cout << std::endl;
+                        std::cout << "----------------" << std::endl;
+                        std::cout << std::endl;
+                        break;
+                    }
+                }
+                case SDL_EVENT_QUIT: {
+                    exit = true;
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+        }
+    }
 
     return 0;
 }
