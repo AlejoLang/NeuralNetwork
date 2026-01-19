@@ -13,9 +13,13 @@ pkg_check_modules(MATIO REQUIRED matio)
 find_package(OpenMP REQUIRED)
 
 add_subdirectory(src)
+add_subdirectory(vendor/SDL EXCLUDE_FROM_ALL)
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${MATIO_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${MATIO_LIBRARIES})
 target_compile_options(${PROJECT_NAME} PRIVATE ${MATIO_CFLAGS_OTHER})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    OpenMP::OpenMP_CXX
+    SDL3::SDL3
+)
